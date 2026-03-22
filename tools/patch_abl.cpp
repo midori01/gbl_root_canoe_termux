@@ -1,6 +1,8 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+typedef unsigned char uint8_t;
+typedef unsigned int uint32_t;
 int read_file(const char* filename, unsigned char** data, size_t* size) {
     FILE* file = fopen(filename, "rb");
     if (!file) {
@@ -87,8 +89,7 @@ int patch_abl_bootstate(char* buffer, size_t size, int8_t *lock_register_num,int
     }
     return patched_count;
 }
-typedef unsigned char uint8_t;
-typedef unsigned int uint32_t;
+
 bool is_ldrb(const char* buffer, size_t offset) {
     uint32_t instr =
         (uint8_t)buffer[offset]                  |
@@ -140,7 +141,7 @@ int find_strb_inst_next(char* buffer, size_t size, int8_t target_register) {
                 printf("Instruction bytes: %02X %02X %02X %02X\n", (unsigned char)buffer[now_offset], (unsigned char)buffer[now_offset + 1], (unsigned char)buffer[now_offset + 2], (unsigned char)buffer[now_offset + 3]); 
                 buffer[now_offset]|=31; // 将寄存器编号修改为 WZR/XZR
                 printf("Instruction bytes: %02X %02X %02X %02X\n", (unsigned char)buffer[now_offset], (unsigned char)buffer[now_offset + 1], (unsigned char)buffer[now_offset + 2], (unsigned char)buffer[now_offset + 3]);
-                return 0; // 找到目标 STRB 指令，返回其偏移
+                return 0; // 找到目标 STRB 指令，返回0
             }
         }
         now_offset += 4; // ARM指令长度为4字节
@@ -170,7 +171,7 @@ int find_ldrB_instructio_reverse(char* buffer, size_t size, int8_t target_regist
                 buffer[now_offset + 3] = (char)((mov_inst >> 24) & 0xFF);
                 printf("Instruction bytes: %02X %02X %02X %02X\n", (unsigned char)buffer[now_offset], (unsigned char)buffer[now_offset + 1], (unsigned char)buffer[now_offset + 2], (unsigned char)buffer[now_offset + 3]); 
 
-                return 0; // 找到目标 LDRB 指令，返回其偏移
+                return 0; // 找到目标 LDRB 指令，返回0
             }
         }
         now_offset -= 4; // ARM指令长度为4字节
@@ -193,14 +194,12 @@ int main(int argc, char* argv[]) {
 
     if (patch_abl_gbl((char*)data, size) != 0) {
         printf("Failed to patch ABL GBL\n");
-        delete[] data;
-        return EXIT_FAILURE;
     }
     int offset=-1;
     int8_t lock_register_num = -1;
     int num_patches = patch_abl_bootstate((char*)data, size,&lock_register_num,&offset);
      if (num_patches == 0) {
-        printf("Failed to patch ABL Boot State\n");
+        printf("Warning:Failed to patch ABL Boot State\n");
         delete[] data;
         return EXIT_FAILURE;
     }
