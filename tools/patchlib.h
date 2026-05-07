@@ -434,8 +434,6 @@ INT32 patch_adrl_unlocked_to_locked(CHAR8* buffer, INT32 size, UINT64 load_base)
         DecodedInst a1 = decode_at(buffer, i + 4);
         DecodedInst b0 = decode_at(buffer, i + 8);
         DecodedInst b1 = decode_at(buffer, i + 12);
-        DecodedInst c0 = decode_at(buffer, i + 16);
-        DecodedInst c1 = decode_at(buffer, i + 20);
 
         if (a0.type != INST_ADRP || a1.type != INST_ADD_X_IMM) continue;
         if (a1.rt != a0.rt || a1.rn != a0.rt) continue;
@@ -443,27 +441,33 @@ INT32 patch_adrl_unlocked_to_locked(CHAR8* buffer, INT32 size, UINT64 load_base)
         if (b0.type != INST_ADRP || b1.type != INST_ADD_X_IMM) continue;
         if (b1.rt != b0.rt || b1.rn != b0.rt) continue;
 
-        if (c0.type != INST_ADRP || c1.type != INST_ADD_X_IMM) continue;
-        if (c1.rt != c0.rt || c1.rn != c0.rt) continue;
 
-        UINT8 xa = a0.rt, xb = b0.rt, xc = c0.rt;
-        if (xa == xb || xb == xc || xa == xc) continue;
+        UINT8 xa = a0.rt, xb = b0.rt;
+        if (xa == xb) continue;
 
         INT64 off0 = calc_adrl_file_offset(buffer, i,      load_base);
         INT64 off1 = calc_adrl_file_offset(buffer, i + 8,  load_base);
-        INT64 off2 = calc_adrl_file_offset(buffer, i + 16, load_base);
 
         if (!str_at(buffer, size, off0, "unlocked")) continue;
         if (!str_at(buffer, size, off1, "locked"))   continue;
-        if (!str_at(buffer, size, off2, "androidboot.vbmeta.device_state")) continue;
-
+        BOOLEAN match = FALSE;
+        for(int j=i+16; j<=i+40;j+=4){
+            DecodedInst c0 = decode_at(buffer, j);
+            DecodedInst c1 = decode_at(buffer, j + 4);
+            if(c0.type == INST_ADRP && c1.type == INST_ADD_X_IMM){
+                INT64 offc = calc_adrl_file_offset(buffer, j, load_base);
+                if(str_at(buffer, size, offc, "androidboot.vbmeta.device_state")){
+                    match = TRUE;
+                    break;
+                }
+            }
+        }
+        if (!match) continue;
         Print_patcher("Found ADRL triple at 0x%X:\n", i);
         Print_patcher("  [0x%X] ADRP+ADD X%d -> file:0x%llX \"unlocked\"\n",
                i, xa, (unsigned long long)off0);
         Print_patcher("  [0x%X] ADRP+ADD X%d -> file:0x%llX \"locked\"\n",
                i+8, xb, (unsigned long long)off1);
-        Print_patcher("  [0x%X] ADRP+ADD X%d -> file:0x%llX \"androidboot.vbmeta.device_state\"\n",
-               i+16, xc, (unsigned long long)off2);
 
         UINT32 new_adrp = adrp_with_rd(b0.raw, xa);
         UINT32 new_add  = add_with_reg(b1.raw, xa);
@@ -495,8 +499,6 @@ INT32 patch_adrl_unlocked_to_locked_verify(CHAR8* buffer, INT32 size, UINT64 loa
         DecodedInst a1 = decode_at(buffer, i + 4);
         DecodedInst b0 = decode_at(buffer, i + 8);
         DecodedInst b1 = decode_at(buffer, i + 12);
-        DecodedInst c0 = decode_at(buffer, i + 16);
-        DecodedInst c1 = decode_at(buffer, i + 20);
 
         if (a0.type != INST_ADRP || a1.type != INST_ADD_X_IMM) continue;
         if (a1.rt != a0.rt || a1.rn != a0.rt) continue;
@@ -504,27 +506,35 @@ INT32 patch_adrl_unlocked_to_locked_verify(CHAR8* buffer, INT32 size, UINT64 loa
         if (b0.type != INST_ADRP || b1.type != INST_ADD_X_IMM) continue;
         if (b1.rt != b0.rt || b1.rn != b0.rt) continue;
 
-        if (c0.type != INST_ADRP || c1.type != INST_ADD_X_IMM) continue;
-        if (c1.rt != c0.rt || c1.rn != c0.rt) continue;
 
-        UINT8 xa = a0.rt, xb = b0.rt, xc = c0.rt;
-        if (xa == xb || xb == xc || xa == xc) continue;
+        UINT8 xa = a0.rt, xb = b0.rt;
+        if (xa == xb) continue;
 
         INT64 off0 = calc_adrl_file_offset(buffer, i,      load_base);
         INT64 off1 = calc_adrl_file_offset(buffer, i + 8,  load_base);
-        INT64 off2 = calc_adrl_file_offset(buffer, i + 16, load_base);
 
         if (!str_at(buffer, size, off0, "locked")) continue;
         if (!str_at(buffer, size, off1, "locked")) continue;
-        if (!str_at(buffer, size, off2, "androidboot.vbmeta.device_state")) continue;
+
+        BOOLEAN match = FALSE;
+        for(int j=i+16; j<=i+40;j+=4){
+            DecodedInst c0 = decode_at(buffer, j);
+            DecodedInst c1 = decode_at(buffer, j + 4);
+            if(c0.type == INST_ADRP && c1.type == INST_ADD_X_IMM){
+                INT64 offc = calc_adrl_file_offset(buffer, j, load_base);
+                if(str_at(buffer, size, offc, "androidboot.vbmeta.device_state")){
+                    match = TRUE;
+                    break;
+                }
+            }
+        }
+        if (!match) continue;
 
         Print_patcher("Found ADRL triple at 0x%X:\n", i);
         Print_patcher("  [0x%X] ADRP+ADD X%d -> file:0x%llX \"locked\"\n",
                i, xa, (unsigned long long)off0);
         Print_patcher("  [0x%X] ADRP+ADD X%d -> file:0x%llX \"locked\"\n",
                i+8, xb, (unsigned long long)off1);
-        Print_patcher("  [0x%X] ADRP+ADD X%d -> file:0x%llX \"androidboot.vbmeta.device_state\"\n",
-               i+16, xc, (unsigned long long)off2);
         patched++;
         i += 20;
     }
@@ -574,11 +584,18 @@ BOOLEAN PatchBuffer(CHAR8* data, INT32 size) {
         Print_patcher("Warning: Failed to patch ABL GBL\n");
     #endif
     #ifndef DISABLE_PATCH_2
-    if (patch_adrl_unlocked_to_locked(data, size, 0) == 0){
+    INT32 patched_adrl = patch_adrl_unlocked_to_locked(data, size, 0);
+    if (patched_adrl == 0){
         Print_patcher("Warning: ADRL triple not found, skipping\n");
         free(data);
         return FALSE;
     }
+
+    if(patched_adrl > 1){
+        Print_patcher("Warning: Multiple ADRL triples patched (%d), verify if all are correct\n", patched_adrl);
+        return FALSE;
+    }
+
     if (patch_adrl_unlocked_to_locked_verify(data, size, 0) == 0){
         Print_patcher("Error: ADRL verification failed\n");
         free(data);
@@ -586,8 +603,8 @@ BOOLEAN PatchBuffer(CHAR8* data, INT32 size) {
     }
     #endif
     #ifndef DISABLE_PATCH_6
-    if (patch_string_jump(data, size) != 0)
-    Print_patcher("Warning: Failed to patch string jump\n");
+    if (!patch_string_jump(data, size))
+        Print_patcher("Warning: Failed to patch string jump\n");
     #endif
     INT32 offset = -1;
     INT8 lock_register_num = -1;
