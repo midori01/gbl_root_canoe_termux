@@ -14,8 +14,7 @@ patch: clean
 	./tools/patch_abl ./dist/ABL_original.efi ./dist/ABL.efi > ./dist/patch_log.txt
 	rm tools/patch_abl
 	cat ./dist/patch_log.txt
-build: patch
-	xxd -i dist/ABL.efi > edk2/QcomModulePkg/Include/Library/ABL.h
+build_loader: clean
 	cp -r ./Conf ./edk2/
 	bash -c 'cd edk2 && . ./edksetup.sh && make BOARD_BOOTLOADER_PRODUCT_NAME=canoe TARGET_ARCHITECTURE=AARCH64 TARGET=RELEASE \
   		CLANG_BIN=/usr/bin/ CLANG_PREFIX=aarch64-linux-gnu- VERIFIED_BOOT_ENABLED=1 \
@@ -28,9 +27,30 @@ build: patch
 		echo "Build failed"; \
 		exit 1; \
 	fi
-	cp edk2/Build/RELEASE_CLANG35/AARCH64/LinuxLoader.efi ./dist/ABL_with_superfastboot.efi
-	cat ./dist/patch_log.txt
+	mkdir -p dist
+	cp edk2/Build/RELEASE_CLANG35/AARCH64/QcomModulePkg/Application/LinuxLoader/LinuxLoader/DEBUG/LinuxLoader.dll ./dist/loader.elf
+	@echo "Loader built successfully: dist/loader.elf"
+
+build: patch build_loader
+	gcc -O2 -o tools/elf_inject tools/elf_inject.c
+	./tools/elf_inject ./dist/loader.elf ./dist/ABL.efi ./dist/ABL_with_superfastboot.dll
+	rm tools/elf_inject
+	edk2/Build/Source/C/bin/GenFw -e UEFI_APPLICATION -o ./dist/ABL_with_superfastboot.efi ./dist/ABL_with_superfastboot.dll
+	rm ./dist/ABL_with_superfastboot.dll
 	ls -l ./dist
+
+dist_loader: build_loader
+	mkdir ./dist/images
+	touch ./dist/images/PUT_ABL_IMAGE_HERE
+	mkdir ./dist/bin
+	gcc -O2 -o ./dist/bin/elf_inject ./tools/elf_inject.c
+	cp ./edk2/Build/Source/C/bin/GenFw ./dist/bin
+	gcc -o ./dist/bin/extractfv ./tools/extractfv.c -llzma
+	gcc -o ./dist/bin/patch_abl ./tools/patch_abl.c
+	cp ./tools/build.sh ./dist
+	cp ./tools/Makefile_dist ./dist/Makefile
+	zip -r release/$(DIST_NAME).zip dist
+
 dist: build
 	mkdir release
 	zip -r release/$(DIST_NAME).zip dist
@@ -70,13 +90,20 @@ build_generic: clean
 build_patcher_android: clean
 	$(NDK_PATH)/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android31-clang tools/patch_abl.c -o dist/patch_abl_android
 	bash ./tools/build_extractfv_android.sh
-build_module: build_patcher_android
+	bash ./tools/build_genfw_android.sh
+build_module: build_patcher_android build_loader
+	cp dist/loader.elf magisk_module/loader.elf
 	mv dist/patch_abl_android magisk_module/bin/patch_abl
 	mv dist/extractfv_android magisk_module/bin/extractfv
+	mv dist/GenFw_android magisk_module/bin/GenFw
+	mv dist/elf_inject_android magisk_module/bin/elf_inject
 	mkdir release || true
 	cd magisk_module && zip -r ../release/$(DIST_NAME).zip ./
 	rm magisk_module/bin/patch_abl
 	rm magisk_module/bin/extractfv
+	rm magisk_module/bin/GenFw
+	rm magisk_module/bin/elf_inject
+	rm magisk_module/loader.elf
 
 test_exploit:
 	@echo "This script is used to test the ABL exploit. Please make sure you tested before ota."
