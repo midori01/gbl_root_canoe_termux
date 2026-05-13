@@ -37,13 +37,13 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: toolkit_linux
-        path: release/toolkit.zip
+        path: release/toolkit_linux.zip
 
     - name: Upload Windows Toolkit
       uses: actions/upload-artifact@v4
       with:
         name: toolkit_windows
-        path: release/toolkit_win_windows.zip
+        path: release/toolkit_windows.zip
 
     - name: Upload Magisk Module
       uses: actions/upload-artifact@v4
