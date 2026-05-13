@@ -5,7 +5,6 @@ clean:
 	rm tools/patch_abl || true
 	rm -rf dist || true
 	rm -rf ./build || true
-	rm -rf release || true
 	mkdir dist
 patch: clean
 	gcc -O2 -o ./tools/extractfv ./tools/extractfv.c -llzma
@@ -45,6 +44,7 @@ dist_loader: build_loader
 	mkdir ./dist/images
 	touch ./dist/images/PUT_ABL_IMAGE_HERE
 	mkdir ./dist/bin
+	mkdir release || true
 	gcc -O2 -o ./dist/bin/elf_inject ./tools/elf_inject.c
 	cp ./edk2/Build/Source/C/bin/GenFw ./dist/bin
 	gcc -o ./dist/bin/extractfv ./tools/extractfv.c -llzma
