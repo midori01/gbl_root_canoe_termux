@@ -51,7 +51,7 @@ dist_loader: build_loader
 	gcc -o ./dist/bin/patch_abl ./tools/patch_abl.c
 	cp ./tools/build.sh ./dist
 	cp ./tools/Makefile_dist ./dist/Makefile
-	zip -r release/$(DIST_NAME).zip dist
+	zip -r release/$(DIST_NAME)_linux.zip dist
 
 dist_loader_windows: build_loader
 	#build with mingw-w64
@@ -69,6 +69,17 @@ dist_loader_windows: build_loader
 	x86_64-w64-mingw32-gcc -o ./dist/bin/patch_abl.exe ./tools/patch_abl.c
 	cp ./tools/build.bat ./dist
 	zip -r release/$(DIST_NAME)_windows.zip dist
+
+dist_loader_android: build_patcher_android build_loader
+	mkdir -p ./dist/images
+	touch ./dist/images/PUT_ABL_IMAGE_HERE
+	mkdir -p ./dist/bin
+	mv ./dist/patch_abl_android ./dist/bin/patch_abl
+	mv ./dist/extractfv_android ./dist/bin/extractfv
+	mv ./dist/GenFw_android ./dist/bin/GenFw
+	mv ./dist/elf_inject_android ./dist/bin/elf_inject
+	cp ./tools/build.sh ./dist
+	zip -r release/$(DIST_NAME)_android.zip dist
 
 dist: build
 	mkdir release
